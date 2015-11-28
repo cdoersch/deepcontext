@@ -7,6 +7,7 @@ import os
 from scipy import misc
 import numpy as np
 import caffe
+import matplotlib.pyplot as plt
 
 # the filename for the root file that's being run.
 def mfilename():
@@ -76,5 +77,10 @@ def get_resized_image(idx,dataset,conf={}):
     ratio=float(maxdim)/float(immax);
     im=caffe.io.resize_image(im,(int(im.shape[0]*ratio),int(im.shape[1]*ratio)))
   return im;
+
+def dispdata(net,idx,layer='data'):
+  dat=net.blobs[layer].data[idx,:,:,:].transpose((1,2,0));
+  dat=(dat-np.min(dat))/(np.max(dat)-np.min(dat));
+  plt.imshow(dat);plt.show();
 
 

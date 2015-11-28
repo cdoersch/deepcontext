@@ -222,10 +222,10 @@ def imgloader(dataq, batch_sz, imgs, tmpdir, seed, tid, patch_sz):
         pats.append(np.copy(
             im[ypix:ypix + patch_sz[0], xpix:xpix + patch_sz[1], :]*255));
         grid[y, x] = j;
-        for pair in [(-1,-1), (-1,0), (-1,1), (0,-1)]:
+        for pair in [(-1,-1), (0,-1), (1,-1), (-1,0)]:
           gridposx = pair[0] + x;
           gridposy = pair[1] + y;
-          if(gridposx < 0 or gridposy < 0 or gridposy >= gridszy):
+          if(gridposx < 0 or gridposy < 0 or gridposx >= gridszx):
             continue;
           perm.append(np.array([j, grid[gridposy, gridposx]]));
           label.append(pos2lbl(pair));
@@ -251,7 +251,7 @@ def pos2lbl(pos):
 # will set these later, need to make it global for signal handler
 if 'exp_name' not in locals():
   exp_name='';
-def signal_handler():
+def signal_handler(signal, frame):
     print("PYCAFFE IS NOT GUARANTEED TO RETURN CONTROL TO PYTHON WHEN " +
         "INTERRUPTED. That means I can't necessarily clean up temporary files " +
         "and spawned processes. " +
@@ -335,9 +335,9 @@ try:
     if(len(fils)>0):
       idxs=[];
       for f in fils:
-        idxs.append(int(re.findall('\d+')[0]));
+        idxs.append(int(re.findall('\d+',os.path.basename(f))[0]));
       idx=np.argmax(np.array(idxs));
-      solver.restore(outdir + fils[idx]);
+      solver.restore(outdir + os.path.basename(fils[idx]));
 
     # we occasionally read out the parameters in this list and save the norm
     # of the update out to disk, so we can make sure they're updating at

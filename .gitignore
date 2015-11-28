@@ -1,3 +1,5 @@
 __pycache__
 *.pyc
 deepcontext_config.py
+*_pause
+*_quit
