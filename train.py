@@ -26,6 +26,10 @@ def conv_relu(bottom, name, ks, nout, stride=1, pad=0, group=1,
       batchnorm = L.BatchNorm(conv, in_place=True, 
                            param=[{"lr_mult":0},{"lr_mult":0},{"lr_mult":0}]);
       convbatch = batchnorm
+    # Note that we don't have a scale/shift afterward, which is different from
+    # the original Batch Normalization layer.  Using a scale/shift layer lets
+    # the network completely silence the activations in a given layer, which
+    # is exactly the behavior that we need to prevent early on.
     relu=L.ReLU(convbatch, in_place=True)
     if batchnorm:
       return conv, batchnorm, relu 
@@ -297,8 +301,9 @@ try:
       input('====================================================================');
     if not os.path.exists(tmpdir):
       os.makedirs(tmpdir);
-    if os.path.exists(outdir + "out.log"):
-      os.remove(outdir + "out.log")
+    # by default, we append to the logfile if it's already there.
+    #if os.path.exists(outdir + "out.log"):
+    #  os.remove(outdir + "out.log")
 
   # Magic commands to redirect standard output and standard
   # error to a log file for easy plotting of the loss function.  Note that

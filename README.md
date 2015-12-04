@@ -64,7 +64,7 @@ If you find this code useful, please consider citing:
    CUDA_VISIBLE_DEVICES to change the GPU. 
 
    All testing was done with python 2.7.  It is recommended that you run inside
-   ipython using `execfile('train.py').
+   ipython using `execfile('train.py')`.
 
 2. To stop the train.py script, create the file `train_quit` in the directory 
    where you ran the code.  This roundabout approach is required because the 
