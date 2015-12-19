@@ -296,9 +296,12 @@ try:
         input=raw_input;
       except:
         pass;
-      print('====================================================================');
-      print('WARNING: opening output log and OVERWRITING EXISTING DATA.  Proceed?');
-      input('====================================================================');
+      print('=======================================================================');
+      print('Found old data. Load most recent snapshot and append to log file (y/N)?');
+      inp=input('======================================================================');
+      if not 'y' == inp.lower():
+        raise RuntimeError("User stopped execution");
+        
     if not os.path.exists(tmpdir):
       os.makedirs(tmpdir);
     # by default, we append to the logfile if it's already there.
@@ -420,7 +423,8 @@ try:
     
     msg = (' Please examine the situation and re-execute ' + exp_name + 
            '.py to continue.')
-    if curstep % 20 == 0:
+    if curstep % 100 == 0:
+      start = time.time()
       print("getting param statistics...")
       for tracknm in track:
         try:
@@ -440,8 +444,8 @@ try:
         nrm[tracknm].append(nrmval);
       np.save(outdir + 'intval',intval);
       np.save(outdir + 'nrm',nrm);
+      print("param statistics time: " + str(time.time()-start));
 
-    if curstep % 20 == 0:
       val = np.sum(solver.net.params["fc8"][0].data);
       if np.isnan(val) or val > 1e10:
         print("fc8 activations look broken to me." + msg)
