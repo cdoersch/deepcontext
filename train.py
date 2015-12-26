@@ -16,71 +16,67 @@ batch_sz=512     # max patches in a single batch
 gap = 48         # gap between patches
 noise = 7        # jitter by at most this many pixels
 
-def conv_relu(bottom, name, ks, nout, stride=1, pad=0, group=1, 
+def netset(n, nm, l):
+  setattr(n, nm, l);
+  return getattr(n,nm);
+
+def conv_relu(n, bottom, name, ks, nout, stride=1, pad=0, group=1, 
               batchnorm=False, weight_filler=dict(type='xavier')):
-    conv = L.Convolution(bottom, kernel_size=ks, stride=stride, 
+    conv = netset(n, 'conv'+name, L.Convolution(bottom, kernel_size=ks, stride=stride, 
                          num_output=nout, pad=pad, group=group, 
-                         weight_filler=weight_filler)
+                         weight_filler=weight_filler))
     convbatch=conv;
     if batchnorm:
-      batchnorm = L.BatchNorm(conv, in_place=True, 
-                           param=[{"lr_mult":0},{"lr_mult":0},{"lr_mult":0}]);
+      batchnorm = netset(n, 'bn'+name, L.BatchNorm(conv, in_place=True, 
+                           param=[{"lr_mult":0},{"lr_mult":0},{"lr_mult":0}]));
       convbatch = batchnorm
     # Note that we don't have a scale/shift afterward, which is different from
     # the original Batch Normalization layer.  Using a scale/shift layer lets
     # the network completely silence the activations in a given layer, which
     # is exactly the behavior that we need to prevent early on.
-    relu=L.ReLU(convbatch, in_place=True)
-    if batchnorm:
-      return conv, batchnorm, relu 
-    else:
-      return conv, relu 
+    relu=netset(n, 'relu'+name, L.ReLU(convbatch, in_place=True))
+    return conv, relu 
 
-def fc_relu(bottom, nout, batchnorm=False):
-    fc = L.InnerProduct(bottom, num_output=nout, 
-                        weight_filler = dict(type='xavier'))
+def fc_relu(n, bottom, name, nout, batchnorm=False):
+    fc = netset(n, 'fc'+name, L.InnerProduct(bottom, num_output=nout, 
+                        weight_filler = dict(type='xavier')))
     fcbatch=fc;
     if batchnorm:
-      batchnorm = L.BatchNorm(fc, in_place=True)
+      batchnorm = netset(n, 'bn'+name, L.BatchNorm(fc, in_place=True,
+                           param=[{"lr_mult":0},{"lr_mult":0},{"lr_mult":0}]));
       fcbatch = batchnorm
-    relu = L.ReLU(fcbatch, in_place=True)
-    if batchnorm:
-      return fc, batchnorm, relu
-    else:
-      return fc, relu
+    relu = netset(n, 'relu'+name, L.ReLU(fcbatch, in_place=True));
+    return fc, relu
 
 def max_pool(bottom, ks, stride=1):
     return L.Pooling(bottom, pool=P.Pooling.MAX, kernel_size=ks, stride=stride)
 
-def caffenet_stack(data, n):
-    n.conv1, n.relu1 = conv_relu(data, '1', 11, 96, stride=4, pad=5)
+def caffenet_stack(data, n, use_bn=True):
+    conv_relu(n, data, '1', 11, 96, stride=4, pad=5)
     n.pool1 = max_pool(n.relu1, 3, stride=2)
     n.norm1 = L.LRN(n.pool1, local_size=5, alpha=1e-4, beta=0.75)
-    n.conv2, n.relu2 = conv_relu(n.norm1, '1', 5, 256, pad=2)
+    conv_relu(n, n.norm1, '2', 5, 256, pad=2)
     n.pool2 = max_pool(n.relu2, 3, stride=2)
     n.norm2 = L.LRN(n.pool2, local_size=5, alpha=1e-4, beta=0.75)
-    n.conv3, n.bn3, n.relu3 = conv_relu(n.norm2, '3', 3, 384, pad=1, 
-                                        batchnorm=True)
-    n.conv4, n.bn4, n.relu4 = conv_relu(n.relu3, '4', 3, 384, pad=1, 
-                                        batchnorm=True)
-    n.conv5, n.bn5, n.relu5 = conv_relu(n.relu4, '5', 3, 256, pad=1, 
-                                        batchnorm=True)
+    conv_relu(n, n.norm2, '3', 3, 384, pad=1, batchnorm=use_bn)
+    conv_relu(n, n.relu3, '4', 3, 384, pad=1, batchnorm=use_bn)
+    conv_relu(n, n.relu4, '5', 3, 256, pad=1, batchnorm=use_bn)
     n.pool5 = max_pool(n.relu5, 3, stride=2)
-    n.fc6, n.bn6, n.relu6 = fc_relu(n.pool5, 4096, batchnorm=True)
+    fc_relu(n, n.pool5, '6', 4096, batchnorm=use_bn)
 
-def gen_net(batch_size=512):
+def gen_net(batch_size=512, use_bn=True):
     n=NetSpec();
     n.data = L.DummyData(shape={"dim":[batch_size,3,96,96]})
     n.select1 = L.DummyData(shape={"dim":[2]})
     n.select2 = L.DummyData(shape={"dim":[2]})
     n.label = L.DummyData(shape={"dim":[2]})
-    caffenet_stack(n.data, n)
-    n.first = L.BatchReindex(n.fc6, n.select1)
-    n.second = L.BatchReindex(n.fc6, n.select2)
+    caffenet_stack(n.data, n, use_bn)
+    n.first = L.BatchReindex(n.relu6, n.select1)
+    n.second = L.BatchReindex(n.relu6, n.select2)
     n.fc6_concat=L.Concat(n.first, n.second);
 
-    n.fc7, n.bn7, n.relu7 = fc_relu(n.fc6_concat, 4096, batchnorm=True);
-    n.fc8, n.relu8 = fc_relu(n.relu7, 4096);
+    fc_relu(n, n.fc6_concat, '7', 4096, batchnorm=use_bn);
+    fc_relu(n, n.relu7, '8', 4096);
     n.fc9 = L.InnerProduct(n.relu8, num_output=8,
                             weight_filler=dict(type='xavier'));
     n.loss = L.SoftmaxWithLoss(n.fc9, n.label, loss_param=dict(normalization=P.Loss.NONE));
@@ -329,6 +325,8 @@ try:
 
     with open(outdir+'network.prototxt','w') as f:
       f.write(str(gen_net()));
+    with open(outdir+'network_no_bn.prototxt','w') as f:
+      f.write(str(gen_net(use_bn=False)));
 
     ut.mkorender('solver_mko.prototxt', outdir + 'solver.prototxt', 
                  base_lr=1e-5, outdir=outdir, weight_decay=0)

@@ -80,3 +80,13 @@ If you find this code useful, please consider citing:
    the directory where you ran the code.  This will let you use pycaffe to
    examine the network state.  Re-run train.py to continue.
 
+4. For our experiments, we ran for 1.7M iterations.  After this point, you can
+   run debatchnorm.py on the output (you'll need your own copy of a caffenet
+   with the groups removed).  Once you've run it, then you have a model that
+   can be fine-tuned.  I recommend using our data-dependent initialization
+   and calibration procedure 
+   [[Krähenbühl et al.](http://arxiv.org/abs/1511.06856)]
+   before fine-tuning, as debatchnorm.py will lead to badly-scaled weights.  
+   The network trained using this procedure and fine-tuned with 
+   [fast-rcnn](https://github.com/rbgirshick/fast-rcnn) on VOC2007 achieves 
+   51.4% MAP.
